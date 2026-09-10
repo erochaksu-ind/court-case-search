@@ -1,6 +1,7 @@
 const API_URL =
   "https://script.google.com/macros/s/AKfycbyeTDWPcKy5V5vuCWg8xNEsgo_YQ2Fqwn6ofAy42yVbQZumfAi35q38CBFQ_EAuYxl8/exec";
 
+
 const input =
   document.getElementById("caseNumber");
 
@@ -42,6 +43,7 @@ function searchCase() {
 
   results.innerHTML = "";
 
+
   if (!caseNumber) {
 
     showMessage(
@@ -60,8 +62,7 @@ function searchCase() {
 
 
   const callbackName =
-    "caseSearchCallback_" +
-    Date.now();
+    "caseSearchCallback_" + Date.now();
 
 
   const script =
@@ -121,10 +122,12 @@ function searchCase() {
 
       script.remove();
 
+
       showMessage(
         "Unable to retrieve case details. Please try again.",
         "error"
       );
+
 
       resetButton();
     };
@@ -146,8 +149,7 @@ function resetButton() {
 
   searchButton.disabled = false;
 
-  searchButton.textContent =
-    "Search";
+  searchButton.textContent = "Search";
 }
 
 
@@ -172,9 +174,7 @@ function renderRecords(records) {
       "Case Details";
 
 
-    card.appendChild(
-      heading
-    );
+    card.appendChild(heading);
 
 
     card.appendChild(
@@ -213,9 +213,7 @@ function renderRecords(records) {
     );
 
 
-    results.appendChild(
-      card
-    );
+    results.appendChild(card);
 
   });
 }
@@ -249,10 +247,8 @@ function createDetail(
 
 
   if (valueClass) {
-
     valueElement.className =
       valueClass;
-
   }
 
 
@@ -260,23 +256,15 @@ function createDetail(
     value || "-";
 
 
-  row.appendChild(
-    labelElement
-  );
-
-  row.appendChild(
-    valueElement
-  );
+  row.appendChild(labelElement);
+  row.appendChild(valueElement);
 
 
   return row;
 }
 
 
-function showMessage(
-  text,
-  type
-) {
+function showMessage(text, type) {
 
   message.textContent =
     text;
