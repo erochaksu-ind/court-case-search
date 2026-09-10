@@ -1,5 +1,5 @@
 const APP_CONFIG = {
-  apiUrl: "https://court-daily-proxy.courtchaksu.workers.dev",
+  apiUrl: "https://court-daily-proxy.courtchaksu.workers.dev", 
   courtName: "SUB DIVISIONLA MAGISTRATE COURT",
   officeName: "Chaksu, Jaipur",
   appTitle: "Court Daily Management",
