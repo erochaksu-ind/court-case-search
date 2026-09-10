@@ -1,97 +1,181 @@
 const API_URL =
   "https://script.google.com/macros/s/AKfycbyeTDWPcKy5V5vuCWg8xNEsgo_YQ2Fqwn6ofAy42yVbQZumfAi35q38CBFQ_EAuYxl8/exec";
 
-const input = document.getElementById("caseNumber");
-const searchButton = document.getElementById("searchButton");
-const message = document.getElementById("message");
-const results = document.getElementById("results");
+const input =
+  document.getElementById("caseNumber");
 
-searchButton.addEventListener("click", searchCase);
+const searchButton =
+  document.getElementById("searchButton");
 
-input.addEventListener("keydown", function (event) {
-  if (event.key === "Enter") {
-    searchCase();
+const message =
+  document.getElementById("message");
+
+const results =
+  document.getElementById("results");
+
+
+searchButton.addEventListener(
+  "click",
+  searchCase
+);
+
+
+input.addEventListener(
+  "keydown",
+  function(event) {
+
+    if (event.key === "Enter") {
+      searchCase();
+    }
+
   }
-});
+);
 
-async function searchCase() {
 
-  const caseNumber = input.value.trim();
+function searchCase() {
+
+  const caseNumber =
+    input.value.trim();
 
   message.textContent = "";
   message.className = "";
+
   results.innerHTML = "";
 
   if (!caseNumber) {
+
     showMessage(
       "Please enter a Case Number.",
       "error"
     );
+
     input.focus();
+
     return;
   }
+
 
   searchButton.disabled = true;
   searchButton.textContent = "Searching...";
 
-  try {
 
-    const url =
-      `${API_URL}?case=${encodeURIComponent(caseNumber)}`;
+  const callbackName =
+    "caseSearchCallback_" +
+    Date.now();
 
-    const response = await fetch(url);
 
-    if (!response.ok) {
-      throw new Error("Server error");
-    }
+  const script =
+    document.createElement("script");
 
-    const data = await response.json();
 
-    if (!data.success) {
+  let finished = false;
+
+
+  window[callbackName] =
+    function(data) {
+
+      finished = true;
+
+      delete window[callbackName];
+
+      script.remove();
+
+
+      if (!data.success) {
+
+        showMessage(
+          data.message ||
+          "Case not found.",
+          "error"
+        );
+
+        resetButton();
+
+        return;
+      }
+
+
       showMessage(
-        data.message || "Case not found.",
+        `${data.count} record(s) found.`,
+        "success"
+      );
+
+
+      renderRecords(
+        data.records
+      );
+
+
+      resetButton();
+    };
+
+
+  script.onerror =
+    function() {
+
+      if (finished) return;
+
+      finished = true;
+
+      delete window[callbackName];
+
+      script.remove();
+
+      showMessage(
+        "Unable to retrieve case details. Please try again.",
         "error"
       );
-      return;
-    }
 
-    showMessage(
-      `${data.count} record(s) found.`,
-      "success"
-    );
+      resetButton();
+    };
 
-    renderRecords(data.records);
 
-  } catch (error) {
+  script.src =
+    API_URL +
+    "?case=" +
+    encodeURIComponent(caseNumber) +
+    "&callback=" +
+    encodeURIComponent(callbackName);
 
-    console.error(error);
 
-    showMessage(
-      "Unable to retrieve case details. Please try again.",
-      "error"
-    );
-
-  } finally {
-
-    searchButton.disabled = false;
-    searchButton.textContent = "Search";
-
-  }
+  document.body.appendChild(script);
 }
+
+
+function resetButton() {
+
+  searchButton.disabled = false;
+
+  searchButton.textContent =
+    "Search";
+}
+
 
 function renderRecords(records) {
 
   results.innerHTML = "";
 
+
   records.forEach(record => {
 
-    const card = document.createElement("article");
-    card.className = "case-card";
+    const card =
+      document.createElement("article");
 
-    const heading = document.createElement("h2");
-    heading.textContent = "Case Details";
+    card.className =
+      "case-card";
 
-    card.appendChild(heading);
+
+    const heading =
+      document.createElement("h2");
+
+    heading.textContent =
+      "Case Details";
+
+
+    card.appendChild(
+      heading
+    );
+
 
     card.appendChild(
       createDetail(
@@ -100,6 +184,7 @@ function renderRecords(records) {
       )
     );
 
+
     card.appendChild(
       createDetail(
         "Case",
@@ -107,75 +192,95 @@ function renderRecords(records) {
       )
     );
 
+
     card.appendChild(
       createDetail(
         "Next Date",
-        record.nextDate || "Not available",
+        record.nextDate ||
+        "Not available",
         "next-date"
       )
     );
 
+
     card.appendChild(
       createDetail(
         "Stage",
-        record.stage || "Not available",
+        record.stage ||
+        "Not available",
         "stage"
       )
     );
 
-    results.appendChild(card);
+
+    results.appendChild(
+      card
+    );
 
   });
 }
 
-function createDetail(label, value, valueClass = "") {
 
-  const row = document.createElement("div");
-  row.className = "detail";
+function createDetail(
+  label,
+  value,
+  valueClass = ""
+) {
+
+  const row =
+    document.createElement("div");
+
+  row.className =
+    "detail";
+
 
   const labelElement =
     document.createElement("div");
 
-  labelElement.className = "detail-label";
-  labelElement.textContent = label;
+  labelElement.className =
+    "detail-label";
+
+  labelElement.textContent =
+    label;
+
 
   const valueElement =
     document.createElement("div");
 
+
   if (valueClass) {
-    valueElement.className = valueClass;
+
+    valueElement.className =
+      valueClass;
+
   }
+
 
   valueElement.textContent =
     value || "-";
 
-  row.appendChild(labelElement);
-  row.appendChild(valueElement);
+
+  row.appendChild(
+    labelElement
+  );
+
+  row.appendChild(
+    valueElement
+  );
+
 
   return row;
 }
 
-function showMessage(text, type) {
-  message.textContent = text;
-  message.className = type;
-}
 
+function showMessage(
+  text,
+  type
+) {
 
-/* Register PWA service worker */
+  message.textContent =
+    text;
 
-if ("serviceWorker" in navigator) {
-
-  window.addEventListener("load", () => {
-
-    navigator.serviceWorker
-      .register("./sw.js")
-      .catch(error => {
-        console.error(
-          "Service Worker registration failed:",
-          error
-        );
-      });
-
-  });
-
+  message.className =
+    type;
 }
