@@ -1,5 +1,5 @@
 const APP_CONFIG = {
-  apiUrl: "https://court-daily-proxy.courtchaksu.workers.dev", 
+  apiUrl: "https://court-daily-proxy.courtchaksu.workers.dev",
   courtName: "SUB DIVISIONLA MAGISTRATE COURT",
   officeName: "Chaksu, Jaipur",
   appTitle: "Court Daily Management",
@@ -136,7 +136,11 @@ async function loadData() {
   if (!content) return;
   content.innerHTML = '<div class="empty">Loading cases...</div>';
   try {
-    const data = await api("getCases");
+    const action =
+      state.view === "daily" ? "getCasesByDate" : "getCases";
+    const data = await api(action, {
+      ...(action === "getCasesByDate" ? { date: state.date } : {}),
+    });
     state.cases = data.cases || [];
     renderView();
   } catch (e) {
@@ -161,10 +165,11 @@ function dashboard() {
   return `<div class="view-head"><div><span class="eyebrow">Dashboard</span><h2>Good day</h2><p>${fmt(localDate(), true)}</p></div></div><div class="grid metrics"><div class="metric accent"><span>Today’s Cases</span><strong>${today}</strong></div><div class="metric"><span>Tomorrow</span><strong>${state.cases.filter((x) => x.nextDate === td).length}</strong></div><div class="metric"><span>Total Cases</span><strong>${state.cases.length}</strong></div><div class="metric"><span>Role</span><strong style="font-size:20px">${esc(state.user.role)}</strong></div></div><section class="panel"><h3>Today by stage</h3><div class="stage-summary">${CASE_STAGES.map((stage) => `<button class="stage-chip" data-stage="${esc(stage)}"><span>${esc(stage)}</span><b>${state.cases.filter((x) => x.nextDate === localDate() && x.stage === stage).length}</b></button>`).join("")}</div></section>`;
 }
 function filteredCases() {
+  const allCasesView = state.view === "cases";
   return state.cases
     .filter(
       (x) =>
-        (!state.date || x.nextDate === state.date) &&
+        (allCasesView || !state.date || x.nextDate === state.date) &&
         (!state.stage || x.stage === state.stage) &&
         (!state.query ||
           [x.serialNo, x.caseNo, x.title, x.stage]
@@ -188,7 +193,8 @@ function dailyList() {
   }<div id="printContainer" class="print-only">${printView(list)}</div>`;
 }
 function caseCard(x) {
-  return `<button class="case-card" data-case="${esc(x.id || x.caseNo)}"><span class="serial">क्र.सं. ${esc(x.serialNo)}</span><strong>${esc(x.caseNo)}</strong><div>${esc(x.title)}</div><div class="case-meta"><span>${esc(x.stage)}</span><span>${fmt(x.nextDate)}</span></div></button>`;
+  const canUpdate = state.user.role === "admin" || state.user.role === "operator";
+  return `<article class="case-card"><button class="case-main" data-case="${esc(x.id || x.caseNo)}"><span class="serial">क्र.सं. ${esc(x.serialNo)}</span><strong>${esc(x.caseNo)}</strong><div>${esc(x.title)}</div><div class="case-meta"><span>${esc(x.stage)}</span><span>${fmt(x.nextDate)}</span></div></button>${canUpdate ? `<form class="quick-update" data-quick-update="${esc(x.id || x.caseNo)}"><input type="date" name="nextDate" value="${esc(x.nextDate)}" aria-label="Next date"><select name="stage" aria-label="Stage">${CASE_STAGES.map((s) => `<option ${s === x.stage ? "selected" : ""}>${esc(s)}</option>`).join("")}</select><button class="btn btn-secondary" type="submit">Update</button></form>` : ""}</article>`;
 }
 function reports() {
   const counts = Object.fromEntries(
@@ -246,6 +252,29 @@ function bindView() {
   document
     .querySelectorAll("[data-case]")
     .forEach((b) => (b.onclick = () => openCaseModal(b.dataset.case)));
+  document.querySelectorAll("[data-quick-update]").forEach((form) => {
+    form.onsubmit = async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const id = form.dataset.quickUpdate;
+      const item = state.cases.find((x) => (x.id || x.caseNo) === id);
+      try {
+        await api("updateCase", {
+          id,
+          data: Object.fromEntries(new FormData(form)),
+        });
+        if (item) {
+          item.nextDate = form.elements.nextDate.value;
+          item.stage = form.elements.stage.value;
+        }
+        toast("Case updated");
+        renderView();
+        bindView();
+      } catch (error) {
+        toast(error.message);
+      }
+    };
+  });
   if ($("profileLogout")) $("profileLogout").onclick = $("logout").onclick;
 }
 function shiftDate(amount) {
