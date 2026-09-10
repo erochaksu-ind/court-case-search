@@ -1,8 +1,9 @@
-const CACHE = "court-daily-v3";
+const CACHE = "court-daily-v4";
 const SHELL = [
   "./",
   "./index.html",
   "./style.css",
+  "./print.css",
   "./app.js",
   "./manifest.json",
   "./icon.svg",
