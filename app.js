@@ -13,6 +13,9 @@ const state = {
   query: "",
   stage: "",
   loading: false,
+  page: 1,
+  pageSize: 100,
+  totalCases: 0,
 };
 const $ = (id) => document.getElementById(id);
 const esc = (value) =>
@@ -136,12 +139,20 @@ async function loadData() {
   if (!content) return;
   content.innerHTML = '<div class="empty">Loading cases...</div>';
   try {
-    const action =
-      state.view === "daily" ? "getCasesByDate" : "getCases";
+    const action = state.view === "daily" ? "getCasesByDate" : "getCases";
     const data = await api(action, {
       ...(action === "getCasesByDate" ? { date: state.date } : {}),
+      ...(state.view === "cases"
+        ? {
+            page: state.page,
+            pageSize: state.pageSize,
+            query: state.query,
+            stage: state.stage,
+          }
+        : {}),
     });
     state.cases = data.cases || [];
+    state.totalCases = data.total ?? state.cases.length;
     renderView();
   } catch (e) {
     content.innerHTML =
@@ -190,10 +201,24 @@ function dailyList() {
             : "";
         }).join("")
       : '<div class="empty">No cases found for this date.</div>'
-  }<div id="printContainer" class="print-only">${printView(list)}</div>`;
+  }${
+    state.view === "cases"
+      ? `<div class="pagination"><button class="btn btn-secondary" id="prevPage" ${
+          state.page <= 1 ? "disabled" : ""
+        }>Previous</button><span>Page ${state.page} of ${Math.max(
+          1,
+          Math.ceil(state.totalCases / state.pageSize),
+        )} · ${state.totalCases} total</span><button class="btn btn-secondary" id="nextPage" ${
+          state.page >= Math.ceil(state.totalCases / state.pageSize)
+            ? "disabled"
+            : ""
+        }>Next</button></div>`
+      : ""
+  }<div id="printContainer" class="print-only">${printView(state.cases)}</div>`;
 }
 function caseCard(x) {
-  const canUpdate = state.user.role === "admin" || state.user.role === "operator";
+  const canUpdate =
+    state.user.role === "admin" || state.user.role === "operator";
   return `<article class="case-card"><button class="case-main" data-case="${esc(x.id || x.caseNo)}"><span class="serial">क्र.सं. ${esc(x.serialNo)}</span><strong>${esc(x.caseNo)}</strong><div>${esc(x.title)}</div><div class="case-meta"><span>${esc(x.stage)}</span><span>${fmt(x.nextDate)}</span></div></button>${canUpdate ? `<form class="quick-update" data-quick-update="${esc(x.id || x.caseNo)}"><input type="date" name="nextDate" value="${esc(x.nextDate)}" aria-label="Next date"><select name="stage" aria-label="Stage">${CASE_STAGES.map((s) => `<option ${s === x.stage ? "selected" : ""}>${esc(s)}</option>`).join("")}</select><button class="btn btn-secondary" type="submit">Update</button></form>` : ""}</article>`;
 }
 function reports() {
@@ -209,11 +234,15 @@ function profile() {
   return `<div class="view-head"><div><span class="eyebrow">Profile</span><h2>${esc(state.user.username)}</h2><p>Signed in as ${esc(state.user.role)}</p></div></div><section class="panel"><h3>About</h3><p>Use the daily list to review cases and, when permitted, update the next date or stage.</p><button class="btn btn-danger" id="profileLogout">Logout</button></section>`;
 }
 function printView(list) {
-  return `<div class="print-header"><h1>${esc(APP_CONFIG.courtName)}</h1><p>${esc(APP_CONFIG.officeName)}</p><h2>DAILY CASE LIST</h2><p>Date: ${fmt(state.date, true)} · Total Cases: ${list.length}</p></div>${CASE_STAGES.map(
+  const generatedAt = new Intl.DateTimeFormat("en-IN", {
+    dateStyle: "long",
+    timeStyle: "short",
+  }).format(new Date());
+  return `<div class="print-header"><h1>${esc(APP_CONFIG.courtName)}</h1><p>${esc(APP_CONFIG.officeName)}</p><h2>DAILY CASE LIST</h2><p>List date: ${fmt(state.date, true)} · Total cases: ${list.length}</p><p class="print-generated">Printed / downloaded: ${esc(generatedAt)}</p></div>${CASE_STAGES.map(
     (stage) => {
       const items = list.filter((x) => x.stage === stage);
       return items.length
-        ? `<section class="print-stage"><h2>${esc(stage)} — ${items.length} cases</h2><table class="print-table"><thead><tr><th>क्र.सं.</th><th>CASE NO</th><th>केस शीर्षक</th></tr></thead><tbody>${items.map((x) => `<tr class="case-row"><td>${esc(x.serialNo)}</td><td>${esc(x.caseNo)}</td><td>${esc(x.title)}</td></tr>`).join("")}</tbody></table></section>`
+        ? `<section class="print-stage"><h2>${esc(stage)} — ${items.length} cases</h2><table class="print-table"><thead><tr><th>क्र.सं.</th><th>CASE NO</th><th>केस शीर्षक</th><th>Current Status</th><th>Next Hearing Date</th></tr></thead><tbody>${items.map((x) => `<tr class="case-row"><td>${esc(x.serialNo)}</td><td>${esc(x.caseNo)}</td><td>${esc(x.title)}</td><td>${esc(x.stage)}</td><td class="blank-hearing">&nbsp;</td></tr>`).join("")}</tbody></table></section>`
         : "";
     },
   ).join("")}`;
@@ -235,19 +264,39 @@ function bindView() {
   if ($("search"))
     $("search").oninput = (e) => {
       state.query = e.target.value;
-      renderView();
-      bindView();
+      if (state.view === "cases") {
+        state.page = 1;
+        loadData();
+      } else {
+        renderView();
+        bindView();
+      }
     };
   document.querySelectorAll("[data-filter]").forEach(
     (b) =>
       (b.onclick = () => {
         state.stage = b.dataset.filter;
-        renderView();
-        bindView();
+        if (state.view === "cases") {
+          state.page = 1;
+          loadData();
+        } else {
+          renderView();
+          bindView();
+        }
       }),
   );
   if ($("prevDate")) $("prevDate").onclick = () => shiftDate(-1);
   if ($("nextDate")) $("nextDate").onclick = () => shiftDate(1);
+  if ($("prevPage"))
+    $("prevPage").onclick = () => {
+      state.page -= 1;
+      render();
+    };
+  if ($("nextPage"))
+    $("nextPage").onclick = () => {
+      state.page += 1;
+      render();
+    };
   if ($("printBtn")) $("printBtn").onclick = () => window.print();
   document
     .querySelectorAll("[data-case]")
