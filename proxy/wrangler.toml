@@ -1,9 +1,0 @@
-name = "court-daily-proxy"
-main = "worker.js"
-compatibility_date = "2026-09-10"
-
-[vars]
-ALLOWED_ORIGIN = "https://erochaksu-ind.github.io"
-
-# Set the private Apps Script URL with:
-# wrangler secret put APPS_SCRIPT_URL
